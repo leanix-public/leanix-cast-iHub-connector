@@ -170,48 +170,52 @@ def testConnector(runContext: RunContext) -> func.HttpResponse:
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-
-    req_body = req.get_json()
-    logger = BlobLogger(req_body['connectorLoggingUrl']
-                        if 'connectorLoggingUrl' in req_body else None)
-    try:
-        runContext = RunContext(
-            req_body['runId'] if 'runId' in req_body else None,
-            req_body['connectorConfiguration']['baseURL'],
-            req_body['secretsConfiguration']['apiKey'],
-            req_body['bindingKey'],
-            req_body['ldifResultUrl'] if 'ldifResultUrl' in req_body else None,
-            req_body["progressCallbackUrl"] if 'progressCallbackUrl' in req_body else None,
-            req_body['testConnector'] if 'testConnector' in req_body else False,
-            logger)
-
-        # Check case the function is only called to run a test
-        if runContext.isRunningInTestMode():
-            return testConnector(runContext)
-
-        # Delegate conversion to a background thread
-        DataLoaderThread(runContext)
-
-        # Answer immediately
-        return func.HttpResponse(
-            json.dumps({'runId': runContext.runId, 'status': 'CREATED'}),
+    return func.HttpResponse(
+            "this is a test",
             status_code=200,
             mimetype='application/json'
         )
+    # req_body = req.get_json()
+    # logger = BlobLogger(req_body['connectorLoggingUrl']
+    #                     if 'connectorLoggingUrl' in req_body else None)
+    # try:
+    #     runContext = RunContext(
+    #         req_body['runId'] if 'runId' in req_body else None,
+    #         req_body['connectorConfiguration']['baseURL'],
+    #         req_body['secretsConfiguration']['apiKey'],
+    #         req_body['bindingKey'],
+    #         req_body['ldifResultUrl'] if 'ldifResultUrl' in req_body else None,
+    #         req_body["progressCallbackUrl"] if 'progressCallbackUrl' in req_body else None,
+    #         req_body['testConnector'] if 'testConnector' in req_body else False,
+    #         logger)
 
-    except KeyError as err:
-        logger.exception("Failed to trigger connector")
-        logger.log(json.dumps(
-            {'error': f'Missing field in connector configuration: {str(err)}'}))
-        return func.HttpResponse(
-            json.dumps(
-                {'error': f'Missing field in connector configuration: {str(err)}'}),
-            status_code=400,
-            mimetype='application/json')
-    except Exception as err:
-        logger.exception("Failed to trigger connector")
-        logger.log(json.dumps({'error': str(err)}))
-        return func.HttpResponse(
-            json.dumps({'error': str(err)}),
-            status_code=400,
-            mimetype='application/json')
+    #     # Check case the function is only called to run a test
+    #     if runContext.isRunningInTestMode():
+    #         return testConnector(runContext)
+
+    #     # Delegate conversion to a background thread
+    #     DataLoaderThread(runContext)
+
+    #     # Answer immediately
+    #     return func.HttpResponse(
+    #         json.dumps({'runId': runContext.runId, 'status': 'CREATED'}),
+    #         status_code=200,
+    #         mimetype='application/json'
+    #     )
+
+    # except KeyError as err:
+    #     logger.exception("Failed to trigger connector")
+    #     logger.log(json.dumps(
+    #         {'error': f'Missing field in connector configuration: {str(err)}'}))
+    #     return func.HttpResponse(
+    #         json.dumps(
+    #             {'error': f'Missing field in connector configuration: {str(err)}'}),
+    #         status_code=400,
+    #         mimetype='application/json')
+    # except Exception as err:
+    #     logger.exception("Failed to trigger connector")
+    #     logger.log(json.dumps({'error': str(err)}))
+    #     return func.HttpResponse(
+    #         json.dumps({'error': str(err)}),
+    #         status_code=400,
+    #         mimetype='application/json')
