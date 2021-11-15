@@ -1,0 +1,21 @@
+{
+    "name": "CAST Highlight",
+    "description": "This is a connector to CAST Highlight",
+    "connectorUrl": "https://castconnector.azurewebsites.net/api/castConnector?code=PbBmBQz7pHQIl3m65bK35/Jt2uVW0wVdm3Sq115t3Ygjn5nN5La7/w==",
+    "connectorConfiguration": {
+        "Base URL" : "https://rpa.casthighlight.com/WS2",
+        "Domain ID" : "please enter your domain ID"
+    },
+    "secretsConfiguration": {
+        "API Token": {}
+    },
+    "bindingKey": {
+        "connectorType": "cast-connector",
+        "connectorId": "cast-connector",
+        "connectorVersion": "1.0.0",
+        "processingDirection": "INBOUND",
+        "processingMode": "PARTIAL"
+    },
+    "featureFlags": [
+    ]
+}

@@ -13,10 +13,10 @@ from decimal import *
 
 class RunContext:
 
-    def __init__(self, runId: str, baseURL: str, apiKey:str, bindingKey: str, ldifResultUrl: str, progressCallbackUrl: str, testConnector: bool, logger: BlobLogger):
+    def __init__(self, runId: str, baseURL: str, domainId: str, apiToken:str, bindingKey: str, ldifResultUrl: str, progressCallbackUrl: str, testConnector: bool, logger: BlobLogger):
         self.runId = runId
-        self.baseURL = baseURL
-        self.headers = {"Authorization": "Bearer "+apiKey}
+        self.apiURL = baseURL + '/domains/' + domainId + '/'
+        self.headers = {"Authorization": "Bearer "+apiToken}
         self.bindingKey = bindingKey
         self.ldifResultUrl = ldifResultUrl
         self.progressCallbackUrl = progressCallbackUrl
@@ -89,7 +89,7 @@ class DataLoaderThread(object): #start and run thread
 
     def loadApplicationsContent(self):
         self.sendCallbackStatus("IN_PROGRESS", "start reading applications")
-        applications = requests.get(self.runContext.baseURL + 'applications', headers=self.runContext.headers)
+        applications = requests.get(self.runContext.apiURL + 'applications', headers=self.runContext.headers)
         content = [] #add applications and recommendations from CAST to content to build ldif
         processedComponents = [] #to ensure recommended components are only added once
         
@@ -98,13 +98,13 @@ class DataLoaderThread(object): #start and run thread
         self.sendCallbackStatus("IN_PROGRESS", str(total_apps) + " applications received with status "+ str(applications.status_code))
         for app in applications.json():
             self.sendCallbackStatus("IN_PROGRESS",'loading content for application ' + str(app_counter) + ' of '+ str(total_apps))
-            application = requests.get(self.runContext.baseURL + 'applications/' + str(app['id']), headers=self.runContext.headers).json()
+            application = requests.get(self.runContext.apiURL + 'applications/' + str(app['id']), headers=self.runContext.headers).json()
             
             if 'metrics' in application:
                 metrics = application['metrics'][0]
             else:
                 metrics = {}
-            rec = requests.get(self.runContext.baseURL + 'applications/' +
+            rec = requests.get(self.runContext.apiURL + 'applications/' +
                             str(app['id']) + '/recommendation', headers=self.runContext.headers).json()
             recommendations = []
             for r in rec:
@@ -154,8 +154,8 @@ class DataLoaderThread(object): #start and run thread
 
 def testConnector(runContext: RunContext) -> func.HttpResponse:
     try:
-        applications = requests.get(runContext.baseURL + 'applications', headers=runContext.headers)
-        data = json.dumps({"message": f'Sucess: Ready to process Cast data: {runContext.baseURL}'})
+        applications = requests.get(runContext.apiURL + 'applications', headers=runContext.headers)
+        data = json.dumps({"message": f'Sucess: Ready to process Cast data: {runContext.apiURL}'})
         return func.HttpResponse(
             data,
             status_code=applications.status_code,
@@ -174,16 +174,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logger = BlobLogger(req_body['connectorLoggingUrl']
                         if 'connectorLoggingUrl' in req_body else None)
 
-    # return func.HttpResponse(
-    #     json.dumps({'runId': req_body['runId'], 'status': 'IN_PROGRESS'}),
-    #     status_code=200,
-    #     mimetype='application/json'
-    # )
     try:
         runContext = RunContext(
             req_body['runId'] if 'runId' in req_body else None,
-            req_body['connectorConfiguration']['baseURL'],
-            req_body['secretsConfiguration']['apiKey'],
+            req_body['connectorConfiguration']['Base URL'],
+            req_body['connectorConfiguration']['Domain ID'],
+            req_body['secretsConfiguration']['API Token'],
             req_body['bindingKey'],
             req_body['ldifResultUrl'] if 'ldifResultUrl' in req_body else None,
             req_body["progressCallbackUrl"] if 'progressCallbackUrl' in req_body else None,
@@ -199,7 +195,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Answer immediately
         return func.HttpResponse(
-            json.dumps({'runId': runContext.runId, 'status': 'CREATED'}),
+            json.dumps({'runId': runContext.runId, 'status': 'IN_PROGRESS'}),
             status_code=200,
             mimetype='application/json'
         )
