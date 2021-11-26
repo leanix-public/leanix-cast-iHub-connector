@@ -9,6 +9,7 @@ import requests
 import azure.functions as func
 from azure.storage.blob import BlobClient
 from decimal import *
+from datetime import datetime
 
 
 class RunContext:
@@ -27,7 +28,17 @@ class RunContext:
         return self.testConnector
 
     def log(self, message: str):
-        self.logger.log(message)
+        self.logger.log(datetime.now().strftime('%d.%m.%Y %H:%M:%S')+ ' - ' + message)
+
+    def logRequest(self, request):
+        self.log('INFO: ' + request.request.method + ' ' + request.request.url)
+        if request.status_code >= 400:
+            self.log('ERROR: status ' + str(request.status_code))
+            self.log('ERROR: text ' + request.text)
+        else:
+            self.log('INFO: status ' + str(request.status_code))
+
+
 
     def exception(self, message: str):
         self.logger.exception(message)
@@ -41,7 +52,7 @@ class DataLoaderThread(object): #start and run thread
         thread.daemon = True
         thread.start()
         runContext.log(
-            f'Cast connector is started. runId: {runContext.runId}')
+            f'INFO: Cast connector is started. runId: {runContext.runId}')
 
     def run(self):
         self.loadCastData()
@@ -64,7 +75,7 @@ class DataLoaderThread(object): #start and run thread
         self.sendCallbackStatus(
             "FINISHED", "ldif file stored in azure storage.")
         self.runContext.log(
-            f'Successfully finished Cast connector run. runId={self.runContext.runId}')
+            f'INFO: Successfully finished Cast connector run. runId={self.runContext.runId}')
 
 
     def createLdif(self):
@@ -90,6 +101,11 @@ class DataLoaderThread(object): #start and run thread
     def loadApplicationsContent(self):
         self.sendCallbackStatus("IN_PROGRESS", "start reading applications")
         applications = requests.get(self.runContext.apiURL + 'applications', headers=self.runContext.headers)
+        self.runContext.logRequest(applications)
+        if (applications.status_code != 200 and applications.status_code != 201):
+            errorMessage = f'Failed to load applications. status: {applications.status_code}, error: {applications.text}'
+            self.sendCallbackStatus("FAILED", errorMessage)
+            return None
         content = [] #add applications and recommendations from CAST to content to build ldif
         processedComponents = [] #to ensure recommended components are only added once
         
@@ -97,15 +113,18 @@ class DataLoaderThread(object): #start and run thread
         total_apps = len(applications.json())
         self.sendCallbackStatus("IN_PROGRESS", str(total_apps) + " applications received with status "+ str(applications.status_code))
         for app in applications.json():
-            self.sendCallbackStatus("IN_PROGRESS",'loading content for application ' + str(app_counter) + ' of '+ str(total_apps))
-            application = requests.get(self.runContext.apiURL + 'applications/' + str(app['id']), headers=self.runContext.headers).json()
-            
+            self.sendCallbackStatus("IN_PROGRESS",'load content for application ' + str(app_counter) + ' of '+ str(total_apps))
+            appResponse = requests.get(self.runContext.apiURL + 'applications/' + str(app['id']), headers=self.runContext.headers)
+            application = appResponse.json()
+            self.runContext.logRequest(appResponse)
             if 'metrics' in application:
                 metrics = application['metrics'][0]
             else:
                 metrics = {}
-            rec = requests.get(self.runContext.apiURL + 'applications/' +
-                            str(app['id']) + '/recommendation', headers=self.runContext.headers).json()
+            recResponse = requests.get(self.runContext.apiURL + 'applications/' +
+                            str(app['id']) + '/recommendation', headers=self.runContext.headers)
+            rec = recResponse.json()
+            self.runContext.logRequest(recResponse)
             recommendations = []
             for r in rec:
                 recommendations += r['recommendations']
@@ -138,7 +157,7 @@ class DataLoaderThread(object): #start and run thread
     
     def sendCallbackStatus(self, status, message):
         data = json.dumps({"status": status, "message": message})
-        self.runContext.log('sendCallbackStatus: ' + data)#todo remove duplicate logs
+        self.runContext.log('INFO: sendCallbackStatus: ' + data)#todo remove duplicate logs
         response = requests.post(
             url=self.runContext.progressCallbackUrl,
             headers={'Content-Type': 'application/json'},
