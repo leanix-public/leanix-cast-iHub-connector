@@ -106,7 +106,7 @@ class DataLoaderThread(object): #start and run thread
             errorMessage = f'Failed to load applications. status: {applications.status_code}, error: {applications.text}'
             self.sendCallbackStatus("FAILED", errorMessage)
             return None
-        content = [] #add applications and recommendations from CAST to content to build ldif
+        content = [] #add applications and recommendations from CAST to content to build LDIF
         processedComponents = [] #to ensure recommended components are only added once
         
         app_counter = 1
